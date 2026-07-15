@@ -5,7 +5,9 @@
 enum {
     NORMAL = 0,
     LOSE = 1,
-    PAUSE = 2
+    PAUSE = 2,
+    SAVE = 3,
+    LOAD = 4
 };
 
 class Render{
@@ -55,6 +57,14 @@ class Render{
             case PAUSE:
                 sfmlPause(window);
                 break;
+            case SAVE:
+                sfmlPause(window);
+                sfmlSave(window);
+                break;
+            case LOAD:  
+                sfmlPause(window);
+                sfmlLoad(window);
+                break;
         }
         window.display();
     }
@@ -87,12 +97,46 @@ class Render{
         }
         sf::Text text(font);
 
-        text.setString("Pause!/nPress Space to Continue, Press R to Restart, Press B to Back");
+        text.setString("Pause!\nPress Space to Continue, Press R to Restart\nPress T to Save, Press L to load");
 
         text.setCharacterSize(24); // in pixels, not points!
 
-        text.setFillColor(sf::Color::Yellow);
-        text.setPosition({WindowRow / 2, WindowCol / 2});
+        text.setFillColor(sf::Color::Black);
+        text.setPosition({WindowRow / 4, WindowCol / 3});
+        window.draw(text);
+    }
+    void sfmlSave(sf::RenderWindow &window){
+        sf::Font font;
+        if (!font.openFromFile("font/arial.ttf")) {
+            // Handle error
+            cout<< "error" << endl;
+            return;
+        }
+        sf::Text text(font);
+
+        text.setString("Game Saved!");
+
+        text.setCharacterSize(24); // in pixels, not points!
+
+        text.setFillColor(sf::Color::Black);
+        text.setPosition({WindowRow / 4, WindowCol / 4});
+        window.draw(text);
+    }
+    void sfmlLoad(sf::RenderWindow &window){
+        sf::Font font;
+        if (!font.openFromFile("font/arial.ttf")) {
+            // Handle error
+            cout<< "error" << endl;
+            return;
+        }
+        sf::Text text(font);
+
+        text.setString("Game Loaded!");
+
+        text.setCharacterSize(24); // in pixels, not points!
+
+        text.setFillColor(sf::Color::Black);
+        text.setPosition({WindowRow / 4, WindowCol / 4});
         window.draw(text);
     }
 };

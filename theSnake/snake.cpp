@@ -45,9 +45,35 @@ int snake_move(Snake *player, Direction direction){
     return 0; //success
 }
 
-void snake_back(Snake *player){
-    change_map(player->snake_tail, floor_V::SNAKE, direction);
-    pair_update(&player->snake_tail, direction);
-    change_map(player->snake_head, floor_V::EMPTY);
-    pair_update(&player->snake_head, get_map_d(player->snake_head));
+void save_snake(Snake *player, string filename, Direction d){
+    ofstream file(filename);    //only once save
+    file << player->snake_head.first << " " << player->snake_head.second << "\n";
+    file << player->snake_tail.first << " " << player->snake_tail.second << "\n";
+    for(int i = 0; i < ROW; i++){
+        for(int j = 0; j < COL; j++){
+            file << map[i][j].value << " ";
+            file << map[i][j].direction << " ";
+        }
+        file << "\n";
+    }
+    file<<d;
+    file.close();
+}
+
+void load_snake(Snake *player, string filename){
+    ifstream file(filename);
+    file >> player->snake_head.first >> player->snake_head.second;
+    file >> player->snake_tail.first >> player->snake_tail.second;
+    for(int i = 0; i < ROW; i++){
+        for(int j = 0; j < COL; j++){
+            int value, direction;
+            file >> value >> direction;
+            map[i][j].value = static_cast<floor_V>(value);
+            map[i][j].direction = static_cast<Direction>(direction);
+        }
+    }
+    int d;
+    file>>d;
+    use_Direction = static_cast<Direction>(d);
+    file.close();
 }

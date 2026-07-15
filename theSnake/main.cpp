@@ -3,6 +3,7 @@
 #include "render.h"
 
 Floor map[ROW][COL];
+Direction use_Direction = Direction::DOWN;
 random_device rd;
 mt19937 gen(rd());
 uniform_int_distribution<int> row_dist(0, ROW - 1);
@@ -34,15 +35,16 @@ int main() {
     Rendering.sfmlDraw(gameWindow);
 
     const sf::Time timePerFrame = sf::seconds(1.0f / 10.0f); // 每秒10次逻辑更新
+    const sf::Time Three = sf::seconds(3.0f); // 3秒
     sf::Clock clock;
     sf::Time timeSinceLastUpdate = sf::Time::Zero;
     Direction read_direction = Direction::DOWN;
+    Direction lastDirection = Direction::DOWN;
     deque<Direction> directionQueue;
     directionQueue.push_back(read_direction);
-    Direction lastDirection = Direction::DOWN;
-    Direction use_Direction = Direction::DOWN;
     int lose = 0;
     int stop = 0;
+    int sl = 0;
 
     // run the program as long as the window is open
     while (gameWindow.isOpen())
@@ -72,10 +74,32 @@ int main() {
                         lastDirection = Direction::DOWN;
                         player.init_snake(0, 0);
                         timeSinceLastUpdate = sf::Time::Zero;
+                        stop = 0;
+                        sl = 0;
                     }
                     else if(keyPressed->scancode == sf::Keyboard::Scan::Space){
                         stop = !stop;
+                        timeSinceLastUpdate = sf::Time::Zero;
+                        sl = 0;
                     }
+                    else if(stop){
+                        if(keyPressed->scancode == sf::Keyboard::Scan::T){
+                            save_snake(&player, "save.txt", use_Direction);
+                            sl = 1;
+                            timeSinceLastUpdate = sf::Time::Zero;
+                        }
+                        else if(keyPressed->scancode == sf::Keyboard::Scan::L){
+                            load_snake(&player, "save.txt");
+                            sl = 2;
+                            timeSinceLastUpdate = sf::Time::Zero;
+                        }
+                    }
+                    continue;
+                }
+
+                if(stop){
+                    read_direction = lastDirection;
+                    continue;
                 }
 
                 if((lastDirection == Direction::UP && read_direction == Direction::DOWN) ||
@@ -91,23 +115,32 @@ int main() {
             }
         }
         
-
+        timeSinceLastUpdate += clock.restart();
         if(lose == 1) continue;
         if(stop == 1){
-            Rendering.sfmlDraw(gameWindow, PAUSE);
+            if(!sl) Rendering.sfmlDraw(gameWindow, PAUSE);
+            else{
+                if(sl == 1)
+                    Rendering.sfmlDraw(gameWindow, SAVE);
+                else if(sl == 2)
+                    Rendering.sfmlDraw(gameWindow, LOAD);
+                if(timeSinceLastUpdate >= Three) sl = 0;
+            }
             continue;
         }
 
-        timeSinceLastUpdate += clock.restart();
+        
 
-        // 3. 只要积累的时间达到一步，就更新游戏逻辑（可以多步追赶）
+        // 只要积累的时间达到一步，就更新游戏逻辑（可以多步追赶）
         while (timeSinceLastUpdate >= timePerFrame) {
             timeSinceLastUpdate -= timePerFrame;
-            //cout<< "direction: " << direction << endl;
+            
             if(!directionQueue.empty()){
                 use_Direction = directionQueue.front();
                 directionQueue.pop_front();
             }
+            //cout<< "direction: " << use_Direction << endl;
+
             int todo = snake_move(&player, use_Direction);
             if(todo == -1){
                 cout<< "Game Over!" << endl;

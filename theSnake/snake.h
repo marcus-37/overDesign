@@ -18,3 +18,5 @@ class Snake{
 };
 
 int snake_move(Snake *player, Direction direction);
+void save_snake(Snake *player, string filename, Direction d);
+void load_snake(Snake *player, string filename);

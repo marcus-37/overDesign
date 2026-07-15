@@ -4,6 +4,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <random>
+#include <fstream>
 using namespace std;
 #define ROW 10
 #define COL 10
@@ -29,6 +30,7 @@ class Floor{
     Direction direction;//if it is snake, pointing to the forward body;
 };
 extern Floor map[ROW][COL];
+extern Direction use_Direction;
 
 void change_map(int x, int y, floor_V value, Direction direction = Direction::NONE);
 
