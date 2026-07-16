@@ -1,27 +1,10 @@
 #include "main.h"
+#include "food.h"
 #include "snake.h"
 #include "render.h"
+#include "states.h"
 
 Floor map[ROW][COL];
-Direction use_Direction = Direction::DOWN;
-random_device rd;
-mt19937 gen(rd());
-uniform_int_distribution<int> row_dist(0, ROW - 1);
-uniform_int_distribution<int> col_dist(0, COL - 1);
-
-pair<int, int> gen_food() {
-    int r = row_dist(gen);
-    int c = col_dist(gen);
-    while(map[r][c].value != floor_V::EMPTY){
-        if(c < COL) c++;
-        else{
-            c = 0;
-            if(r < ROW) r++;
-            else r = 0;
-        }
-    }
-    return {r, c};
-}
 
 int main() {
     sf::RenderWindow gameWindow;
@@ -30,6 +13,7 @@ int main() {
     
     Render Rendering;
     Snake player;
+    player.init_snake(0, 0);
     reset_map();
     //Rendering.ezDraw();
     Rendering.sfmlDraw(gameWindow);
@@ -40,6 +24,7 @@ int main() {
     sf::Time timeSinceLastUpdate = sf::Time::Zero;
     Direction read_direction = Direction::DOWN;
     Direction lastDirection = Direction::DOWN;
+    Direction use_Direction = Direction::DOWN;
     deque<Direction> directionQueue;
     directionQueue.push_back(read_direction);
     int lose = 0;
@@ -67,11 +52,13 @@ int main() {
                     if(keyPressed->scancode == sf::Keyboard::Scan::Escape){
                         gameWindow.close();
                     }
-                    else if(keyPressed->scancode == sf::Keyboard::Scan::R && lose == 1){
+                    else if(keyPressed->scancode == sf::Keyboard::Scan::R){
                         reset_map();
                         lose = 0;
                         read_direction = Direction::DOWN;
                         lastDirection = Direction::DOWN;
+                        use_Direction = Direction::DOWN;
+                        directionQueue.clear();
                         player.init_snake(0, 0);
                         timeSinceLastUpdate = sf::Time::Zero;
                         stop = 0;
@@ -84,12 +71,13 @@ int main() {
                     }
                     else if(stop){
                         if(keyPressed->scancode == sf::Keyboard::Scan::T){
-                            save_snake(&player, "save.txt", use_Direction);
+                            save_state(&player, "save.txt");
                             sl = 1;
                             timeSinceLastUpdate = sf::Time::Zero;
                         }
                         else if(keyPressed->scancode == sf::Keyboard::Scan::L){
-                            load_snake(&player, "save.txt");
+                            load_state(&player, "save.txt");
+                            use_Direction = player.get_direction();
                             sl = 2;
                             timeSinceLastUpdate = sf::Time::Zero;
                         }
@@ -140,15 +128,15 @@ int main() {
                 directionQueue.pop_front();
             }
             //cout<< "direction: " << use_Direction << endl;
-
-            int todo = snake_move(&player, use_Direction);
+            player.set_direction(use_Direction);
+            int todo = snake_move(&player);
             if(todo == -1){
                 cout<< "Game Over!" << endl;
                 //gameWindow.close();
                 lose = 1;
             }
             else if(todo == 1){
-                change_map(gen_food(), floor_V::FOOD);
+                gen_food();
             }
         }
 
@@ -158,37 +146,29 @@ int main() {
     }
 }
 
-void change_map(int x, int y, floor_V value, Direction direction){
+void change_map(int x, int y, Map value){
     map[x][y].value = value;
-    map[x][y].direction = direction;
 }
 
-void change_map(pair<int, int> pos, floor_V value, Direction direction){
+void change_map(pair<int, int> pos, Map value){
     map[pos.first][pos.second].value = value;
-    map[pos.first][pos.second].direction = direction;
 }
 
-int get_map_v(int x, int y){
+Map get_map_class(int x, int y){
     return map[x][y].value;
 }
 
-int get_map_v(pair<int, int> pos){
+Map get_map_class(pair<int, int> pos){
     return map[pos.first][pos.second].value;
-}
-
-Direction get_map_d(pair<int, int> pos){
-    return map[pos.first][pos.second].direction;
 }
 
 void reset_map(){
     for(int i = 0; i < ROW; i++){
         for(int j = 0; j < COL; j++){
-            map[i][j].x = i;
-            map[i][j].y = j;
-            map[i][j].value = floor_V::EMPTY;
-            map[i][j].direction = Direction::NONE;
+            map[i][j].value.set_value(floor_V::EMPTY);
+            map[i][j].value.set_pos(i, j);
         }
     }
-    map[0][0].value = floor_V::SNAKE;
-    change_map(gen_food(), floor_V::FOOD);
+    change_map(0, 0, Sbody(0, 0, 1));
+    gen_food();
 }

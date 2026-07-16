@@ -1,10 +1,10 @@
 #pragma once   
 
 #include <iostream>
-#include <SFML/Window.hpp>
-#include <SFML/Graphics.hpp>
-#include <random>
 #include <fstream>
+#include <sstream>
+#include <deque>
+
 using namespace std;
 #define ROW 10
 #define COL 10
@@ -12,8 +12,9 @@ using namespace std;
 #define WindowCol 600
 enum floor_V{
     EMPTY = 0,
-    SNAKE = 1,
-    FOOD = 2
+    SNAKE_BODY = 1,
+    FOOD = 2,
+    SNAKE_HEAD = 3
 };
 enum Direction{
     NONE = -1,
@@ -22,25 +23,57 @@ enum Direction{
     LEFT = 2,
     RIGHT = 3
 };
-class Floor{
+class Map{
     public:
+    floor_V get_value(){
+        return this->value;
+    }
+    pair<int, int> get_pos(){
+        return make_pair(this->x, this->y);
+    }
+    void set_value(floor_V value){
+        this->value = value;
+    }
+    void set_pos(int x = 0, int y = 0){
+        this->x = x;
+        this->y = y;
+    }
+    Map(pair<int, int> pos = {0, 0}, floor_V value = floor_V::EMPTY){
+        this->value = value;
+        this->x = pos.first;
+        this->y = pos.second;
+    }
+
+    string save_string(){
+        return "{ " + to_string(this->value) + " " + to_string(this->x) + " " + to_string(this->y) + " }";
+    }
+    Map load_string(string s){
+        istringstream iss(s);
+        char c;
+        int value, x, y;
+        iss >> c >> value >> x >> y >> c;
+        this->value = static_cast<floor_V>(value);
+        this->x = x;
+        this->y = y;
+        return *this;
+    }
+    private:
+    floor_V value;
     int x;
     int y;
-    floor_V value;
-    Direction direction;//if it is snake, pointing to the forward body;
+};//基类
+class Floor{
+    public:
+    Map value;
 };
-extern Floor map[ROW][COL];
-extern Direction use_Direction;
 
-void change_map(int x, int y, floor_V value, Direction direction = Direction::NONE);
+void change_map(int x, int y, Map value);
 
-void change_map(pair<int, int> pos, floor_V value, Direction direction = Direction::NONE);
+void change_map(pair<int, int> pos, Map value);
 
-int get_map_v(int x, int y);
+Map get_map_class(int x, int y);
 
-int get_map_v(pair<int, int> pos);
-
-Direction get_map_d(pair<int, int> pos);
+Map get_map_class(pair<int, int> pos);
 
 void reset_map();
 

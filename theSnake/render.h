@@ -1,6 +1,9 @@
 #pragma once   
 
 #include "main.h"
+#include "snake.h"
+#include <SFML/Window.hpp>
+#include <SFML/Graphics.hpp>
 
 enum {
     NORMAL = 0,
@@ -15,14 +18,16 @@ class Render{
     void ezDraw(){
         for(int i = 0; i < ROW; i++){
             for(int j = 0; j < COL; j++){
-                if(map[i][j].value == floor_V::EMPTY){
+                if(get_map_class(i, j).get_value() == floor_V::EMPTY){
                     cout << ". ";
                 }
-                else if(map[i][j].value == floor_V::SNAKE){
-                    if(map[i][j].direction == Direction::NONE) cout << "H ";
-                    else cout << "S ";
+                else if(get_map_class(i, j).get_value() == floor_V::SNAKE_BODY){
+                    cout << "S ";
                 }
-                else if(map[i][j].value == floor_V::FOOD){
+                else if(get_map_class(i, j).get_value() == floor_V::SNAKE_HEAD){
+                    cout << "H ";
+                }
+                else if(get_map_class(i, j).get_value() == floor_V::FOOD){
                     cout << "X ";
                 }
             }
@@ -35,14 +40,17 @@ class Render{
             for(int j = 0; j < COL; j++){
                 sf::RectangleShape rectangle(sf::Vector2f(WindowRow / COL, WindowCol / ROW));
                 rectangle.setPosition({j * (WindowRow / COL), i * (WindowCol / ROW)});
-                if(map[i][j].value == floor_V::EMPTY){
+                Map temp = get_map_class(i, j);
+                if(temp.get_value() == floor_V::EMPTY){
                     rectangle.setFillColor(sf::Color::White);
                 }
-                else if(map[i][j].value == floor_V::SNAKE){
-                    if(map[i][j].direction == Direction::NONE) rectangle.setFillColor(sf::Color::Green);
-                    else rectangle.setFillColor(sf::Color::Blue);
+                else if(temp.get_value() == floor_V::SNAKE_BODY){
+                    rectangle.setFillColor(sf::Color::Blue);
                 }
-                else if(map[i][j].value == floor_V::FOOD){
+                else if(temp.get_value() == floor_V::SNAKE_HEAD){
+                    rectangle.setFillColor(sf::Color::Green);
+                }
+                else if(get_map_class(i, j).get_value() == floor_V::FOOD){
                     rectangle.setFillColor(sf::Color::Red);
                 }
                 window.draw(rectangle);
