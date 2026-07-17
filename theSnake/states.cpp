@@ -4,8 +4,8 @@
 void save_state(Snake *player, string filename){
     ofstream file(filename);    //only once save
     file << player->snake_body.size() << "\n";
-    for(Sbody body : player->snake_body){
-        file << body.get_pos().first << " " << body.get_pos().second << " " << body.get_value() << "\n";
+    for(Sbody* body : player->snake_body){
+        file << body->get_pos().first << " " << body->get_pos().second << " " << body->get_value() << "\n";
     }
     for(int i = 0; i < ROW; i++){
         for(int j = 0; j < COL; j++){
@@ -27,7 +27,7 @@ void save_state(Snake *player, string filename){
         }
         file << "\n";
     }
-    file<<player->get_direction();
+    file<<player->get_direction()<<" "<<player->get_move_direction();
     file.close();
 }
 
@@ -40,7 +40,7 @@ void load_state(Snake *player, string filename){
     for(int i = 1; i <= snake_size; i++){
         int x, y, value;
         file >> x >> y >> value;
-        player->snake_body.push_back(Sbody(x, y, value == floor_V::SNAKE_HEAD));
+        player->snake_body.push_back(new Sbody(x, y, value == floor_V::SNAKE_HEAD));
     }
 
     for(int i = 0; i < ROW; i++){
@@ -86,9 +86,10 @@ void load_state(Snake *player, string filename){
             change_map(i, j, cell);
         }
     }
-    int d;
-    file>>d;
-    player->set_direction(static_cast<Direction>(d));
+    int d1, d2;
+    file>>d1>>d2;
+    player->set_direction(static_cast<Direction>(d1));
+    player->set_move_direction(static_cast<Direction>(d2));
     file.close();
 }
 
@@ -107,3 +108,4 @@ floor_V load_s(string cell_str){
     }
     return floor_V::EMPTY;
 }
+

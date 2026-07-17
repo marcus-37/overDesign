@@ -4,12 +4,15 @@
 #include <fstream>
 #include <sstream>
 #include <deque>
+#include <vector>
+#include <SFML/System/Time.hpp>
 
 using namespace std;
 #define ROW 10
 #define COL 10
-#define WindowRow 600
-#define WindowCol 600
+#define WindowRow 800
+#define WindowCol 800
+#define SNAKE_SPEED 0.1 //每SNAKE_SPEED走1格
 enum floor_V{
     EMPTY = 0,
     SNAKE_BODY = 1,
@@ -57,6 +60,14 @@ class Map{
         this->y = y;
         return *this;
     }
+
+    void onEnter(Map who){
+        set_value(who.get_value());
+    }
+    void onLeave(){
+        set_value(floor_V::EMPTY);
+    }
+
     private:
     floor_V value;
     int x;
@@ -76,4 +87,3 @@ Map get_map_class(int x, int y);
 Map get_map_class(pair<int, int> pos);
 
 void reset_map();
-

@@ -27,7 +27,7 @@ $(TARGET): $(OBJS)
 	$(CXX) $(OBJS) $(LDFLAGS) $(LDLIBS) -o $(TARGET)
 
 # --- 编译规则 ---
-main.o: main.cpp main.h food.h snake.h render.h states.h
+main.o: main.cpp main.h food.h snake.h render.h states.h component.h
 	$(CXX) $(CXXFLAGS) -c main.cpp -o main.o
 
 food.o: food.cpp food.h main.h

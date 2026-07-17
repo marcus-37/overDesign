@@ -3,8 +3,15 @@
 #include "snake.h"
 #include "render.h"
 #include "states.h"
+#include "component.h"
 
 Floor map[ROW][COL];
+Direction read_direction = Direction::DOWN;
+Direction use_Direction = Direction::DOWN;
+Direction decode_direction(const sf::Event::KeyPressed *keyPressed, Direction lastDirection);
+Direction cantBack(Direction read_direction, Direction lastDirection);
+int autoPlay = 0;
+float nowSpeedModifier = 1;
 
 int main() {
     sf::RenderWindow gameWindow;
@@ -13,22 +20,21 @@ int main() {
     
     Render Rendering;
     Snake player;
-    player.init_snake(0, 0);
     reset_map();
     //Rendering.ezDraw();
     Rendering.sfmlDraw(gameWindow);
 
-    const sf::Time timePerFrame = sf::seconds(1.0f / 10.0f); // 每秒10次逻辑更新
+    const sf::Time timePerFrame = sf::seconds(1.0f / 20.0f); // 每秒20次逻辑更新
     const sf::Time Three = sf::seconds(3.0f); // 3秒
     sf::Clock clock;
     sf::Time timeSinceLastUpdate = sf::Time::Zero;
-    Direction read_direction = Direction::DOWN;
-    Direction lastDirection = Direction::DOWN;
-    Direction use_Direction = Direction::DOWN;
+    State* currentState = new RunningState();
+    movable Movable;
+    Movable.add_snake(&player);
+    Foods nowfoods;
+    needUpdate need_update(&Movable, &nowfoods);
     deque<Direction> directionQueue;
     directionQueue.push_back(read_direction);
-    int lose = 0;
-    int stop = 0;
     int sl = 0;
 
     // run the program as long as the window is open
@@ -43,69 +49,110 @@ int main() {
                 gameWindow.close();
 
             if(const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()){
-                
-                if(keyPressed->scancode == sf::Keyboard::Scan::W) read_direction = Direction::UP;
-                else if(keyPressed->scancode == sf::Keyboard::Scan::S) read_direction = Direction::DOWN;
-                else if(keyPressed->scancode == sf::Keyboard::Scan::A) read_direction = Direction::LEFT;
-                else if(keyPressed->scancode == sf::Keyboard::Scan::D) read_direction = Direction::RIGHT;
-                else{
-                    if(keyPressed->scancode == sf::Keyboard::Scan::Escape){
-                        gameWindow.close();
-                    }
-                    else if(keyPressed->scancode == sf::Keyboard::Scan::R){
-                        reset_map();
-                        lose = 0;
-                        read_direction = Direction::DOWN;
-                        lastDirection = Direction::DOWN;
-                        use_Direction = Direction::DOWN;
-                        directionQueue.clear();
-                        player.init_snake(0, 0);
+                if(keyPressed->scancode == sf::Keyboard::Scan::Escape){
+                    gameWindow.close();
+                }
+                else if(keyPressed->scancode == sf::Keyboard::Scan::R){
+                    reset_map();
+                    nowfoods.foods.clear();
+                    gen_food(need_update.food);
+                    directionQueue.clear();
+                    player.init_snake(0, 0);
+                    timeSinceLastUpdate = sf::Time::Zero;
+                    sl = 0;
+                    currentState->leave();
+                    free(currentState);
+                    currentState = new RunningState();
+                }
+                else if(keyPressed->scancode == sf::Keyboard::Scan::Q){
+                    autoPlay = !autoPlay;
+                    nowSpeedModifier = autoPlay ? 4 : 1;
+                    player.set_SpeedModifier(nowSpeedModifier);
+                }
+                else if(keyPressed->scancode == sf::Keyboard::Scan::P){
+                    nowSpeedModifier = 0.25;
+                    player.set_SpeedModifier(nowSpeedModifier);
+                }
+
+                if(currentState == nullptr) currentState = new RunningState();
+                else if(currentState->get_state() == GameState::RUNNING){
+                    if(keyPressed->scancode == sf::Keyboard::Scan::Space){
                         timeSinceLastUpdate = sf::Time::Zero;
-                        stop = 0;
                         sl = 0;
+                        currentState->leave();
+                        free(currentState);
+                        currentState = new PauseState();
+                    }
+                    else{
+                        read_direction = decode_direction(keyPressed, player.get_direction());
+                        if(directionQueue.size() <= 5) directionQueue.push_back(read_direction);
+                    }
+                }
+                else if(currentState->get_state() == GameState::PAUSING){
+                    if(keyPressed->scancode == sf::Keyboard::Scan::T){
+                        save_state(&player, "save.txt");
+                        sl = 1;
+                        timeSinceLastUpdate = sf::Time::Zero;
+                    }
+                    else if(keyPressed->scancode == sf::Keyboard::Scan::L){
+                        load_state(&player, "save.txt");
+                        use_Direction = player.get_direction();
+                        sl = 2;
+                        timeSinceLastUpdate = sf::Time::Zero;
                     }
                     else if(keyPressed->scancode == sf::Keyboard::Scan::Space){
-                        stop = !stop;
                         timeSinceLastUpdate = sf::Time::Zero;
                         sl = 0;
+                        currentState->leave();
+                        free(currentState);
+                        currentState = new RunningState();
                     }
-                    else if(stop){
-                        if(keyPressed->scancode == sf::Keyboard::Scan::T){
-                            save_state(&player, "save.txt");
-                            sl = 1;
-                            timeSinceLastUpdate = sf::Time::Zero;
-                        }
-                        else if(keyPressed->scancode == sf::Keyboard::Scan::L){
-                            load_state(&player, "save.txt");
-                            use_Direction = player.get_direction();
-                            sl = 2;
-                            timeSinceLastUpdate = sf::Time::Zero;
-                        }
-                    }
-                    continue;
                 }
-
-                if(stop){
-                    read_direction = lastDirection;
-                    continue;
-                }
-
-                if((lastDirection == Direction::UP && read_direction == Direction::DOWN) ||
-                    (lastDirection == Direction::DOWN && read_direction == Direction::UP) ||
-                    (lastDirection == Direction::LEFT && read_direction == Direction::RIGHT) ||
-                    (lastDirection == Direction::RIGHT && read_direction == Direction::LEFT)){
-                    read_direction = lastDirection;
-                }
-                else{
-                    lastDirection = read_direction;
-                }
-                if(directionQueue.size() <= 5) directionQueue.push_back(read_direction);
             }
         }
         
-        timeSinceLastUpdate += clock.restart();
-        if(lose == 1) continue;
-        if(stop == 1){
+        //timeSinceLastUpdate += clock.restart();
+
+        //timeSinceLastUpdate -= timePerFrame;
+        
+        if(!directionQueue.empty() && player.get_direction() == player.get_move_direction()){
+            use_Direction = directionQueue.front();
+            directionQueue.pop_front();
+        }
+        //cout<< "direction: " << use_Direction << endl;
+        
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift)){
+            player.set_SpeedModifier(1.5*nowSpeedModifier);
+            if(autoPlay) player.set_SpeedModifier(2*nowSpeedModifier);
+        }
+        else{
+            player.set_SpeedModifier(nowSpeedModifier);
+        }
+
+        if(autoPlay){
+            if(player.get_head()->get_pos().second < COL - 1 && player.get_head()->get_pos().second > 0){
+                use_Direction = Direction::RIGHT;
+            }
+            else if(player.get_direction() == Direction::DOWN && player.get_head()->get_pos().second == COL - 1) 
+                use_Direction = Direction::LEFT;
+            else if(player.get_direction() == Direction::DOWN || player.get_direction() == Direction::UP)
+                use_Direction = Direction::RIGHT;
+            else use_Direction = Direction::DOWN;
+        }
+
+        use_Direction = cantBack(use_Direction, player.get_direction());
+        player.set_move_direction(use_Direction);
+        int nextState = currentState->update(&need_update, clock.restart());
+        if(nextState != currentState->get_state()){
+            if(nextState == GameState::LOSING){
+                currentState->leave();
+                free(currentState);
+                currentState = new LoseState();
+            }
+        }
+
+        //Rendering.ezDraw();
+        if(currentState->get_state() == GameState::PAUSING){
             if(!sl) Rendering.sfmlDraw(gameWindow, PAUSE);
             else{
                 if(sl == 1)
@@ -114,34 +161,13 @@ int main() {
                     Rendering.sfmlDraw(gameWindow, LOAD);
                 if(timeSinceLastUpdate >= Three) sl = 0;
             }
-            continue;
         }
-
-        
-
-        // 只要积累的时间达到一步，就更新游戏逻辑（可以多步追赶）
-        while (timeSinceLastUpdate >= timePerFrame) {
-            timeSinceLastUpdate -= timePerFrame;
-            
-            if(!directionQueue.empty()){
-                use_Direction = directionQueue.front();
-                directionQueue.pop_front();
-            }
-            //cout<< "direction: " << use_Direction << endl;
-            player.set_direction(use_Direction);
-            int todo = snake_move(&player);
-            if(todo == -1){
-                cout<< "Game Over!" << endl;
-                //gameWindow.close();
-                lose = 1;
-            }
-            else if(todo == 1){
-                gen_food();
-            }
+        else if(currentState->get_state() == GameState::LOSING){
+            Rendering.sfmlDraw(gameWindow, LOSE);
         }
-
-        //Rendering.ezDraw();
-        Rendering.sfmlDraw(gameWindow, lose);
+        else{
+            Rendering.sfmlDraw(gameWindow);
+        }
 
     }
 }
@@ -169,6 +195,28 @@ void reset_map(){
             map[i][j].value.set_pos(i, j);
         }
     }
-    change_map(0, 0, Sbody(0, 0, 1));
-    gen_food();
+    read_direction = Direction::DOWN;
+    use_Direction = Direction::DOWN;
+    change_map(0, 0, Map({0, 0}, floor_V::SNAKE_HEAD));
+}
+
+Direction decode_direction(const sf::Event::KeyPressed *keyPressed, Direction lastDirection){
+    Direction read_direction = lastDirection;
+    if(keyPressed->scancode == sf::Keyboard::Scan::W) read_direction = Direction::UP;
+    else if(keyPressed->scancode == sf::Keyboard::Scan::S) read_direction = Direction::DOWN;
+    else if(keyPressed->scancode == sf::Keyboard::Scan::A) read_direction = Direction::LEFT;
+    else if(keyPressed->scancode == sf::Keyboard::Scan::D) read_direction = Direction::RIGHT;
+
+    read_direction = cantBack(read_direction, lastDirection);
+    return read_direction;
+}
+
+Direction cantBack(Direction read_direction, Direction lastDirection){
+    if((lastDirection == Direction::UP && read_direction == Direction::DOWN) ||
+        (lastDirection == Direction::DOWN && read_direction == Direction::UP) ||
+        (lastDirection == Direction::LEFT && read_direction == Direction::RIGHT) ||
+        (lastDirection == Direction::RIGHT && read_direction == Direction::LEFT)){
+        read_direction = lastDirection;
+    }
+    return read_direction;
 }
