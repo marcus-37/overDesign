@@ -21,11 +21,11 @@
 // ---------- 配置参数 ----------
 struct Config
 {
-    int   writerCount    = 8;       // 写入线程数
-    int   readerCount    = 2;       // 读取线程数
-    int   testSeconds    = 10;      // 测试持续秒数
-    int   keyLength      = 8;       // 随机 key 长度
-    int   valueLength    = 64;      // 随机 value 长度
+    int   writerCount    = 16;       // 写入线程数
+    int   readerCount    = 4;       // 读取线程数
+    int   testSeconds    = 20;      // 测试持续秒数
+    int   keyLength      = 4;       // 随机 key 长度
+    int   valueLength    = 2048;      // 随机 value 长度
     int   readBatchSize  = 5;       // 每次读取尝试几个 key
 };
 

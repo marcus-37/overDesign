@@ -7,6 +7,7 @@
 #include <set>
 #include <cstddef>
 #include <mutex>
+#include <atomic>
 #include <thread>
 #include <chrono>
 #include <ctime>
@@ -50,25 +51,27 @@ static std::mutex g_tableMtx;
 static std::vector<FileEntry> g_files;
 static int g_level0Seq = -1;
 
+static std::atomic<bool> g_mergePending{false};
+static std::mutex g_mergeMtx;
+
 // ============================================================
 //  工具: 文件名 ↔ level/seq
 // ============================================================
 
-static std::string makePath(int level, int seq)
+static std::string makePath(int level, int id)
 {
     char buf[32];
-    std::snprintf(buf, sizeof(buf), "data_%02d%d", seq, level);
+    std::snprintf(buf, sizeof(buf), "data_%d%02d", level, id);
     return buf;
 }
 
-static bool parsePath(const std::string& path, int& level, int& seq)
+static bool parsePath(const std::string& path, int& level, int& id)
 {
     if (path.compare(0, 5, "data_") != 0) return false;
-    std::string r = path.substr(5);
-    if (r.size() != 3) return false;
-    seq   = std::atoi(r.substr(0, 2).c_str());
-    level = r[2] - '0';
-    return true;
+    if (path.size() != 9) return false; // "data_xxx"
+    level = path[5] - '0';
+    id    = std::atoi(path.substr(6, 2).c_str());
+    return level >= 0 && level <= 9 && id >= 0 && id <= 99;
 }
 
 static std::string lockPath(const std::string& dp) { return dp + ".lock"; }
@@ -395,19 +398,31 @@ static void sync_locked()
     g_cacheBytes = 0;
     clearLog();
 
-    // 触发 merge 检查（level 0 > 4 则合并到 level 1，会递归）
+    // 标记需要 merge（实际在 push 的锁外执行）
     int cnt0 = 0;
     {
         std::lock_guard<std::mutex> lock(g_tableMtx);
         for (auto& fe : g_files) if (fe.level == 0) cnt0++;
     }
-    if (cnt0 > LEVEL0_MAX_FILES) mergeLevel(0);
+    if (cnt0 > LEVEL0_MAX_FILES)
+        g_mergePending.store(true, std::memory_order_relaxed);
 }
 
 static void sync()
 {
-    std::lock_guard<std::mutex> lock(g_cacheMtx);
-    sync_locked();
+    {
+        std::lock_guard<std::mutex> lock(g_cacheMtx);
+        sync_locked();
+    }
+    if (g_mergePending.load(std::memory_order_relaxed))
+    {
+        std::lock_guard<std::mutex> lock(g_mergeMtx);
+        if (g_mergePending.load(std::memory_order_relaxed))
+        {
+            g_mergePending.store(false, std::memory_order_relaxed);
+            mergeLevel(0);
+        }
+    }
 }
 
 // ============================================================
@@ -422,6 +437,17 @@ void push(const std::string& key, const std::string& value)
         g_cache.push_back({key, value});
         g_cacheBytes += kvBytes;
         if (g_cacheBytes >= SIZE * 1024) { sync_locked(); return; }
+    }
+
+    // 锁外执行 merge（不阻塞其他写线程）
+    if (g_mergePending.load(std::memory_order_relaxed))
+    {
+        std::lock_guard<std::mutex> lock(g_mergeMtx);
+        if (g_mergePending.load(std::memory_order_relaxed))
+        {
+            g_mergePending.store(false, std::memory_order_relaxed);
+            mergeLevel(0);
+        }
     }
 }
 

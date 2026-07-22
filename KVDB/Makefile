@@ -38,9 +38,9 @@ clean:
 run: $(TARGET)
 	./$(TARGET)
 
-# --- 运行性能测试（默认10秒，8写2读） ---
+# --- 运行性能测试 ---
 run-bench: $(BENCH)
-	./$(BENCH) 8 2 10
+	./$(BENCH)
 
 # --- 重新构建 ---
 rebuild: clean all
